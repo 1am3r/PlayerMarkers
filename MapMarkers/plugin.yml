@@ -1,0 +1,7 @@
+name: MapMarkers
+version: 0.1.0
+decsription: Generates Markers on an Overviewer generated map
+author: 1am3r
+website: http://1am3r.github.com/MapMarkers/
+
+main: com.github._1am3r.MapMarkers.MapMarkers
