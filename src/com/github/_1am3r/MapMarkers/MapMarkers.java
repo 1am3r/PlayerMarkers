@@ -10,12 +10,17 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Wolf;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.simple.JSONArray;
@@ -160,6 +165,23 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 			out.put("z", p.getValue().z);
 
 			jsonList.add(out);
+		}
+
+		List<World> test = getServer().getWorlds();
+		Collection<Wolf> wolfs = getServer().getWorld("").getEntitiesByClass(Wolf.class);
+		for (Wolf w : wolfs) {
+			if (w.isTamed() && w.getOwner() != null && w.getOwner() instanceof OfflinePlayer) {
+				OfflinePlayer p = (OfflinePlayer) w.getOwner();
+				out = new JSONObject();
+				out.put("msg", p.getName());
+				out.put("id", 6);
+				out.put("world", w.getLocation().getWorld().getName());
+				out.put("x", w.getLocation().getBlockX());
+				out.put("y", w.getLocation().getBlockY());
+				out.put("z", w.getLocation().getBlockZ());
+
+				jsonList.add(out);
+			}
 		}
 
 		dataWriter.setData(jsonList);
