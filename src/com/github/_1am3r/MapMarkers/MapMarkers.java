@@ -145,7 +145,6 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 			out.put("x", p.getLocation().getBlockX());
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
-			out.put("online", true);
 
 			jsonList.add(out);
 		}
@@ -154,12 +153,11 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 		for (ConcurrentHashMap.Entry<String, SimpleLocation> p : offlinePlayers.entrySet()) {
 			out = new JSONObject();
 			out.put("msg", p.getKey());
-			out.put("id", 4);
+			out.put("id", 5);
 			out.put("world", p.getValue().worldName);
 			out.put("x", p.getValue().x);
 			out.put("y", p.getValue().y);
 			out.put("z", p.getValue().z);
-			out.put("online", false);
 
 			jsonList.add(out);
 		}
