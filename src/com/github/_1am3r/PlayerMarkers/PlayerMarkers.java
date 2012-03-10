@@ -1,4 +1,4 @@
-package com.github._1am3r.MapMarkers;
+package com.github._1am3r.PlayerMarkers;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -21,12 +21,16 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Wolf;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
-public class MapMarkers extends JavaPlugin implements Runnable {
+public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private int updateTaskId = 0;
 	private JSONDataWriter dataWriter = null;
 	private PluginDescriptionFile pdfFile;
@@ -58,7 +62,7 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 		updateTaskId = getServer().getScheduler().scheduleSyncRepeatingTask(this, this, updateInterval, updateInterval);
 
 		// Register our event handlers
-		getServer().getPluginManager().registerEvents(new MapMarkersPlayerListener(this), this);
+		getServer().getPluginManager().registerEvents(this, this);
 
 		// Done initializing, tell the world
 		Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName() + " version " + pdfFile.getVersion() + " enabled");
@@ -77,16 +81,14 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 		Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName() + " disabled");
 	}
 
-	public void updatePlayer(Player p) {
-		// Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName()
-		// + ": removing Player " + p.getName() + " from HashMap");
-		offlinePlayers.remove(p.getName());
+	@EventHandler
+	public void playerJoin(PlayerJoinEvent event) {
+		offlinePlayers.remove(event.getPlayer().getName());
 	}
 
-	public void removePlayer(Player p) {
-		// Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName()
-		// + ": adding Player " + p.getName() + " to HashMap");
-		offlinePlayers.put(p.getName(), new SimpleLocation(p.getLocation()));
+	@EventHandler
+	public void playerQuit(PlayerQuitEvent event) {
+		offlinePlayers.put(event.getPlayer().getName(), new SimpleLocation(event.getPlayer().getLocation()));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -211,8 +213,7 @@ public class MapMarkers extends JavaPlugin implements Runnable {
 					writer.print(jsonData);
 					writer.close();
 				} catch (java.io.IOException e) {
-					Logger.getLogger(getDescription().getName()).log(Level.SEVERE, "Unable to write to " + targetPath + ": " + e.getMessage(), e);
-					e.printStackTrace();
+					Logger.getLogger(getDescription().getName()).log(Level.SEVERE, "Unable to write to " + targetPath + ": " + e.getMessage());
 				} finally {
 					jsonData = null;
 				}

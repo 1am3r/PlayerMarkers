@@ -1,7 +1,7 @@
-name: MapMarkers
-version: 0.1.0
+name: PlayerMarkers
+version: 0.1.2
 decsription: Generates Markers on an Overviewer generated map
 author: 1am3r
-website: http://1am3r.github.com/MapMarkers/
+website: http://1am3r.github.com/PlayerMarkers/
 
-main: com.github._1am3r.MapMarkers.MapMarkers
+main: com.github._1am3r.PlayerMarkers.PlayerMarkers
