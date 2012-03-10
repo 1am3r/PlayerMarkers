@@ -9,16 +9,16 @@
 	if(!file_exists("./cache/")) mkdir("./cache/");
 
 	//If it's cached, then yay.
-	if(file_exists("./cache/$username_grey.png") && filemtime("./cache/$username_grey.png") > time()-86400) {
-		readfile("./cache/$username_grey.png");
+	if(file_exists("./cache/" . $username . "_grey.png") && filemtime("./cache/" . $username . "_grey.png") > time()-86400) {
+		readfile("./cache/" . $username . "_grey.png");
 		die();
 	}
 
 	$src = @imagecreatefrompng("http://s3.amazonaws.com/MinecraftSkins/{$username}.png");
 	if(!$src) {
 		//Display the old one, even if it's outdated (better than nothing).
-		if(file_exists("./cache/$username_grey.png")) {
-			readfile("./cache/$username_grey.png");
+		if(file_exists("./cache/" . $username . "_grey.png")) {
+			readfile("./cache/" . $username . "_grey.png");
 			die();
 		}
 
@@ -46,6 +46,6 @@
 	imagecopy($img,$src,			4,	0,	40,	8,	8,	8);				//Hat
 
 	if(!file_exists("./cache/")) mkdir("./cache/");
-	imagepng($img,"./cache/$username_grey.png");
+	imagepng($img,"./cache/" . $username . "_grey.png");
 	imagepng($img);
 ?>
