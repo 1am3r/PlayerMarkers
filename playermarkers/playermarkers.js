@@ -2,13 +2,20 @@ var playerMarkers = [];
 var infoWindowsArray = [];
 var foundPlayerMarkers = null;
 var validDimensions = ["", " - overworld", " - nether", " - end"];
+var imageURL = "playermarkers/player.php";
 
 setInterval(updatePlayerMarkers, 1000 * 3);
 setTimeout(updatePlayerMarkers, 1000);
 
 function prepareInfoWindow(infoWindow, item) {
 	var online = (item.id == 4 ? "Online" : (item.id == 5 ? "Offline" : ""))
-	var c = "<div class=\"infoWindow\" style='width: 300px'><img src='playermarkers/player.php?"+item.msg+"'/><h1>"+item.msg+"</h1><p style='text-align: left;'>"+online+"<br />X: "+item.x+"<br />Y: "+item.y+"<br />Z: "+item.z+"</p></div>";
+	var c = 
+    "<div class=\"infoWindow\" style='width: 300px'><img src='playermarkers/player.php?online?big?"+item.msg+"'/>\
+    <h1>&nbsp;"+item.msg+"</h1>\
+    <p style='text-align: left;'>&nbsp;"+online+"<br />\
+    &nbsp;X: "+item.x+"<br />\
+    &nbsp;Y: "+item.y+"<br />\
+    &nbsp;Z: "+item.z+"</p></div>";
 	if (c != infoWindow.getContent())
 		infoWindow.setContent(c);
 }
@@ -34,7 +41,7 @@ function updatePlayerMarkers() {
 			if (!onCurWorld) continue;
 
 			var converted = overviewer.util.fromWorldToLatLng(item.x, item.y, item.z, overviewer.mapView.options.currentTileSet);
-			var playerImg = (item.id == 4 ? "playermarkers/player.php" : (item.id == 5 ? "playermarkers/player_grey.php" : ""))
+			var playerOnline = (item.id == 4 ? "online" : (item.id == 5 ? "offline" : ""))
 
 			//if found, change position
 			var found = false;
@@ -42,7 +49,7 @@ function updatePlayerMarkers() {
 				if(playerMarkers[player].getTitle() == item.msg) {
 					foundPlayerMarkers[player] = found = true;
 					playerMarkers[player].setPosition(converted);
-					playerMarkers[player].setIcon(playerImg+'?'+item.msg);
+					playerMarkers[player].setIcon(imageURL+'?'+playerOnline+"?small?"+item.msg);
 					if(playerMarkers[player].getMap() == null)
 						playerMarkers[player].setMap(overviewer.map);
 					prepareInfoWindow(infoWindowsArray[player], item);
@@ -55,7 +62,7 @@ function updatePlayerMarkers() {
 					position: converted,
 					map: overviewer.map,
 					title: item.msg,
-					icon: playerImg+'?'+item.msg,
+					icon: imageURL+'?'+playerOnline+"?small?"+item.msg,
 					visible: true,
 					zIndex: 999
 				});
