@@ -1,6 +1,6 @@
 <?php
   $queryStr = preg_replace('/[^a-zA-Z0-9_?]/', '', $_SERVER['QUERY_STRING']);
-  list($online, $size, $username) = explode("?", $querystr, 3) + Array("online", "small", "player");
+  list($online, $size, $username) = explode("?", $queryStr, 3) + Array("online", "small", "player");
   $username = preg_replace('/[^a-zA-Z0-9_]/', '', $username);
 
   $pictureOnline = "";
