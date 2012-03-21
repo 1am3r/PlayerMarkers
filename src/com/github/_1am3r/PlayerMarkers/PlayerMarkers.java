@@ -10,11 +10,16 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -26,21 +31,45 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
+	private static final String MappingSectionName = "Mapping";
+
 	private int updateTaskId = 0;
 	private JSONDataWriter dataWriter = null;
 	private PluginDescriptionFile pdfFile;
 	private File locationsFile;
+	private Map<String, String> nameMap = new HashMap<String, String>();
 	private ConcurrentHashMap<String, SimpleLocation> offlinePlayers = new ConcurrentHashMap<String, SimpleLocation>();
 
 	public void onEnable() {
 		pdfFile = this.getDescription();
 
-		// Create the config file
-		File configFile = new File(getDataFolder(), "config.yml");
-		if (!configFile.exists() || !configFile.isFile()) {
-			getConfig().options().copyDefaults(true);
-			saveDefaultConfig();
+		// Clear out the mapping
+		nameMap.clear();
+
+		// Load the name mapping from the config
+		ConfigurationSection mappingsection = getConfig().getConfigurationSection(MappingSectionName);
+		if (mappingsection != null) {
+			// Load and check the mapping found in the config
+			Map<String, Object> configMap = mappingsection.getValues(false);
+			for (Map.Entry<String, Object> entry : configMap.entrySet()) {
+				nameMap.put(entry.getKey(), (String) entry.getValue());
+			}
+		} else {
+			Logger.getLogger(pdfFile.getName()).log(Level.WARNING, "[" + pdfFile.getName() + "] found no configured mapping, creating a default one.");
 		}
+		// If there are new worlds in the server add them to the mapping
+		List<World> serverWorlds = getServer().getWorlds();
+		for (World w : serverWorlds) {
+			if (!nameMap.containsKey(w.getName())) {
+				nameMap.put(w.getName(), w.getName());
+			}
+		}
+		// Set the new mapping
+		getConfig().createSection(MappingSectionName, nameMap);
+
+		// Save the config
+		getConfig().options().copyDefaults(true);
+		saveConfig();
 
 		locationsFile = new File(getDataFolder(), "locations.bin");
 
@@ -143,7 +172,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out = new JSONObject();
 			out.put("msg", p.getName());
 			out.put("id", 4);
-			out.put("world", p.getLocation().getWorld().getName());
+			out.put("world", nameMap.get(p.getLocation().getWorld().getName()));
 			out.put("x", p.getLocation().getBlockX());
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
@@ -156,7 +185,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out = new JSONObject();
 			out.put("msg", p.getKey());
 			out.put("id", 5);
-			out.put("world", p.getValue().worldName);
+			out.put("world", nameMap.get(p.getValue().worldName));
 			out.put("x", p.getValue().x);
 			out.put("y", p.getValue().y);
 			out.put("z", p.getValue().z);
