@@ -1,2 +1,4 @@
 updateInterval: 5000
-targetFile: /path/to/overviewer/markers.json
+targetFile: /path/to/overviewermap/markers.json
+saveOfflinePlayers: true
+offlineFile: locations.bin
