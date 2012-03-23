@@ -33,18 +33,76 @@ import org.json.simple.JSONObject;
 public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private static final String MappingSectionName = "Mapping";
 
-	private int updateTaskId = 0;
-	private JSONDataWriter dataWriter = null;
-	private PluginDescriptionFile pdfFile;
-	private File locationsFile;
-	private Map<String, String> nameMap = new HashMap<String, String>();
-	private ConcurrentHashMap<String, SimpleLocation> offlinePlayers = new ConcurrentHashMap<String, SimpleLocation>();
+	private int mUpdateTaskId = 0;
+	private JSONDataWriter mDataWriter = null;
+	private PluginDescriptionFile mPdfFile;
+	private File mOfflineLocationsFile = null;
+	private Map<String, String> mMapNameMapping = new HashMap<String, String>();
+	private ConcurrentHashMap<String, SimpleLocation> mOfflineLocations = new ConcurrentHashMap<String, SimpleLocation>();
+	private boolean mSaveOfflinePlayers = true;
 
 	public void onEnable() {
-		pdfFile = this.getDescription();
+		mPdfFile = this.getDescription();
+		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
 
+		// Initialize the mapping bukkit to overviewer map names
+		initMapNameMapping();
+
+		// Save the config
+		getConfig().options().copyDefaults(true);
+		saveConfig();
+
+		if (mSaveOfflinePlayers) {
+			initializeOfflinePlayersMap();
+		}
+
+		int updateInterval = getConfig().getInt("updateInterval");
+		// Convert interval from 1000 ms to game ticks (20 per second)
+		updateInterval /= 50;
+
+		String targetFile = getConfig().getString("targetFile");
+		mDataWriter = new JSONDataWriter(targetFile);
+
+		// Register update task
+		mUpdateTaskId = getServer().getScheduler().scheduleSyncRepeatingTask(this, this, updateInterval, updateInterval);
+
+		if (mSaveOfflinePlayers) {
+			// Register our event handlers
+			getServer().getPluginManager().registerEvents(this, this);
+		}
+
+		// Done initializing, tell the world
+		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " version " + mPdfFile.getVersion() + " enabled");
+	}
+
+	public void onDisable() {
+		// Disable updates
+		getServer().getScheduler().cancelTask(mUpdateTaskId);
+
+		if (mSaveOfflinePlayers) {
+			// Save the offline players map
+			saveOfflinePlayersMap();
+		}
+
+		// Update data one last time
+		this.run();
+
+		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " disabled");
+	}
+
+	@EventHandler
+	public void playerJoin(PlayerJoinEvent event) {
+		mOfflineLocations.remove(event.getPlayer().getName());
+	}
+
+	@EventHandler
+	public void playerQuit(PlayerQuitEvent event) {
+		mOfflineLocations.put(event.getPlayer().getName(), new SimpleLocation(event.getPlayer().getLocation()));
+	}
+
+	private void initMapNameMapping() {
 		// Clear out the mapping
-		nameMap.clear();
+		mMapNameMapping.clear();
 
 		// Load the name mapping from the config
 		ConfigurationSection mappingsection = getConfig().getConfigurationSection(MappingSectionName);
@@ -52,92 +110,59 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			// Load and check the mapping found in the config
 			Map<String, Object> configMap = mappingsection.getValues(false);
 			for (Map.Entry<String, Object> entry : configMap.entrySet()) {
-				nameMap.put(entry.getKey(), (String) entry.getValue());
+				mMapNameMapping.put(entry.getKey(), (String) entry.getValue());
 			}
 		} else {
-			Logger.getLogger(pdfFile.getName()).log(Level.WARNING, "[" + pdfFile.getName() + "] found no configured mapping, creating a default one.");
+			Logger.getLogger(mPdfFile.getName()).log(Level.WARNING, "[" + mPdfFile.getName() + "] found no configured mapping, creating a default one.");
 		}
+
 		// If there are new worlds in the server add them to the mapping
 		List<World> serverWorlds = getServer().getWorlds();
 		for (World w : serverWorlds) {
-			if (!nameMap.containsKey(w.getName())) {
-				nameMap.put(w.getName(), w.getName());
+			if (!mMapNameMapping.containsKey(w.getName())) {
+				mMapNameMapping.put(w.getName(), w.getName());
 			}
 		}
-		// Set the new mapping
-		getConfig().createSection(MappingSectionName, nameMap);
 
-		// Save the config
-		getConfig().options().copyDefaults(true);
-		saveConfig();
-
-		locationsFile = new File(getDataFolder(), "locations.bin");
-
-		initializeOfflinePlayersMap();
-
-		int updateInterval = getConfig().getInt("updateInterval");
-		// Convert interval from 1000 ms to game ticks (20 per second)
-		updateInterval /= 50;
-
-		String targetFile = getConfig().getString("targetFile");
-		dataWriter = new JSONDataWriter(targetFile);
-
-		// Register update task
-		updateTaskId = getServer().getScheduler().scheduleSyncRepeatingTask(this, this, updateInterval, updateInterval);
-
-		// Register our event handlers
-		getServer().getPluginManager().registerEvents(this, this);
-
-		// Done initializing, tell the world
-		Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName() + " version " + pdfFile.getVersion() + " enabled");
-	}
-
-	public void onDisable() {
-		// Disable updates
-		getServer().getScheduler().cancelTask(updateTaskId);
-
-		// Save the offline plaers map
-		saveOfflinePlayersMap();
-
-		// Update data one last time
-		this.run();
-
-		Logger.getLogger(pdfFile.getName()).log(Level.INFO, pdfFile.getName() + " disabled");
-	}
-
-	@EventHandler
-	public void playerJoin(PlayerJoinEvent event) {
-		offlinePlayers.remove(event.getPlayer().getName());
-	}
-
-	@EventHandler
-	public void playerQuit(PlayerQuitEvent event) {
-		offlinePlayers.put(event.getPlayer().getName(), new SimpleLocation(event.getPlayer().getLocation()));
+		// Set the new mapping in the config
+		getConfig().createSection(MappingSectionName, mMapNameMapping);
 	}
 
 	@SuppressWarnings("unchecked")
-	public void initializeOfflinePlayersMap() {
-		if (locationsFile.exists() && locationsFile.isFile()) {
+	private void initializeOfflinePlayersMap() {
+		File configOfflineLocationPath = new File(getConfig().getString("offlineFile"));
+		if (configOfflineLocationPath.isAbsolute()) {
+			mOfflineLocationsFile = configOfflineLocationPath;
+		} else {
+			mOfflineLocationsFile = new File(getDataFolder(), configOfflineLocationPath.getPath());
+		}
+
+		if (mOfflineLocationsFile.exists() && mOfflineLocationsFile.isFile()) {
 			// Data is stored, load it
 			try {
-				ObjectInputStream in = new ObjectInputStream(new FileInputStream(locationsFile));
-				offlinePlayers = (ConcurrentHashMap<String, SimpleLocation>) in.readObject();
+				ObjectInputStream in = new ObjectInputStream(new FileInputStream(mOfflineLocationsFile));
+				mOfflineLocations = (ConcurrentHashMap<String, SimpleLocation>) in.readObject();
 				in.close();
 			} catch (IOException e) {
-				Logger.getLogger(pdfFile.getName()).log(Level.WARNING, pdfFile.getName() + ": Couldn't open Locations file!");
+				Logger.getLogger(mPdfFile.getName()).log(Level.WARNING,
+						mPdfFile.getName() + ": Couldn't open Locations file from " + mOfflineLocationsFile.toString() + "!");
 			} catch (ClassNotFoundException e) {
-				Logger.getLogger(pdfFile.getName()).log(Level.WARNING, pdfFile.getName() + ": Couldn't load Locations file!");
+				Logger.getLogger(mPdfFile.getName()).log(Level.WARNING,
+						mPdfFile.getName() + ": Couldn't load Locations file from " + mOfflineLocationsFile.toString() + "!");
 			}
 		}
 	}
 
-	public void saveOfflinePlayersMap() {
-		try {
-			ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(locationsFile));
-			out.writeObject(offlinePlayers);
-			out.close();
-		} catch (IOException e) {
-			Logger.getLogger(pdfFile.getName()).log(Level.WARNING, pdfFile.getName() + ": Couldn't write Locations file! \n" + e.getMessage());
+	private void saveOfflinePlayersMap() {
+		if (mOfflineLocationsFile != null && mSaveOfflinePlayers) {
+			try {
+				ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(mOfflineLocationsFile));
+				out.writeObject(mOfflineLocations);
+				out.close();
+			} catch (IOException e) {
+				Logger.getLogger(mPdfFile.getName()).log(Level.WARNING,
+						mPdfFile.getName() + ": Couldn't write Locations file from " + mOfflineLocationsFile.toString() + "! \n" + e.getMessage());
+			}
 		}
 	}
 
@@ -172,7 +197,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out = new JSONObject();
 			out.put("msg", p.getName());
 			out.put("id", 4);
-			out.put("world", nameMap.get(p.getLocation().getWorld().getName()));
+			out.put("world", mMapNameMapping.get(p.getLocation().getWorld().getName()));
 			out.put("x", p.getLocation().getBlockX());
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
@@ -180,21 +205,23 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			jsonList.add(out);
 		}
 
-		// Write Offline players
-		for (ConcurrentHashMap.Entry<String, SimpleLocation> p : offlinePlayers.entrySet()) {
-			out = new JSONObject();
-			out.put("msg", p.getKey());
-			out.put("id", 5);
-			out.put("world", nameMap.get(p.getValue().worldName));
-			out.put("x", p.getValue().x);
-			out.put("y", p.getValue().y);
-			out.put("z", p.getValue().z);
+		if (mSaveOfflinePlayers) {
+			// Write Offline players
+			for (ConcurrentHashMap.Entry<String, SimpleLocation> p : mOfflineLocations.entrySet()) {
+				out = new JSONObject();
+				out.put("msg", p.getKey());
+				out.put("id", 5);
+				out.put("world", mMapNameMapping.get(p.getValue().worldName));
+				out.put("x", p.getValue().x);
+				out.put("y", p.getValue().y);
+				out.put("z", p.getValue().z);
 
-			jsonList.add(out);
+				jsonList.add(out);
+			}
 		}
 
-		dataWriter.setData(jsonList);
-		getServer().getScheduler().scheduleAsyncDelayedTask(this, dataWriter);
+		mDataWriter.setData(jsonList);
+		getServer().getScheduler().scheduleAsyncDelayedTask(this, mDataWriter);
 	}
 
 	private class JSONDataWriter implements Runnable {
