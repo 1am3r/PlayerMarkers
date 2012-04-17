@@ -3,5 +3,5 @@ version: 0.2.0
 decsription: Generates Markers on an Overviewer generated map
 author: 1am3r
 website: http://1am3r.github.com/PlayerMarkers/
-
+dev-url: http://dev.bukkit.org/server-mods/mapmarkers/
 main: com.github._1am3r.PlayerMarkers.PlayerMarkers
