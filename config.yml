@@ -1,4 +1,5 @@
 updateInterval: 5000
 targetFile: /path/to/overviewermap/markers.json
 saveOfflinePlayers: true
+hideVanishedPlayers: true
 offlineFile: locations.bin

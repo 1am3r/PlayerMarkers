@@ -25,6 +25,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.simple.JSONArray;
@@ -40,10 +41,12 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private Map<String, String> mMapNameMapping = new HashMap<String, String>();
 	private ConcurrentHashMap<String, SimpleLocation> mOfflineLocations = new ConcurrentHashMap<String, SimpleLocation>();
 	private boolean mSaveOfflinePlayers = true;
+	private boolean mHideVanishedPlayers = true;
 
 	public void onEnable() {
 		mPdfFile = this.getDescription();
 		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
+		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
 
 		// Initialize the mapping bukkit to overviewer map names
 		initMapNameMapping();
@@ -202,6 +205,15 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
 
+			if (mHideVanishedPlayers) {
+				List<MetadataValue> list = p.getMetadata("vanished");
+				for (MetadataValue value : list) {
+					if (value.asBoolean()) {
+						out.put("id", 5);
+						break;
+					}
+				}
+			}
 			jsonList.add(out);
 		}
 
