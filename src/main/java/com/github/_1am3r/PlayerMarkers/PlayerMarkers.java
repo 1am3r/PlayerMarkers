@@ -42,7 +42,8 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private ConcurrentHashMap<String, SimpleLocation> mOfflineLocations = new ConcurrentHashMap<String, SimpleLocation>();
 	private boolean mSaveOfflinePlayers = true;
 	private boolean mHideVanishedPlayers = true;
-
+	private boolean disabled = false;
+	
 	public void onEnable() {
 		mPdfFile = this.getDescription();
 		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
@@ -79,6 +80,8 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	}
 
 	public void onDisable() {
+		this.disabled = true;
+		
 		// Disable updates
 		getServer().getScheduler().cancelTask(mUpdateTaskId);
 
@@ -233,7 +236,15 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		}
 
 		mDataWriter.setData(jsonList);
-		getServer().getScheduler().scheduleAsyncDelayedTask(this, mDataWriter);
+		
+		// if the plugin is disabled, no async task
+		if (!this.disabled)
+		{
+			getServer().getScheduler().runTaskAsynchronously(this, mDataWriter);
+		}else
+		{
+			mDataWriter.run();
+		}
 	}
 
 	private class JSONDataWriter implements Runnable {
