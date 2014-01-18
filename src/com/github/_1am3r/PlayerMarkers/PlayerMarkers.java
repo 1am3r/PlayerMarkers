@@ -28,6 +28,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffectType;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -42,11 +43,21 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private ConcurrentHashMap<String, SimpleLocation> mOfflineLocations = new ConcurrentHashMap<String, SimpleLocation>();
 	private boolean mSaveOfflinePlayers = true;
 	private boolean mHideVanishedPlayers = true;
+	private boolean mHideSneakingPlayers = true;
+	private boolean mHideInvisiblePlayers = true;
+	private boolean mSendJSONOnVanishedPlayers = false;
+	private boolean mSendJSONOnSneakingPlayers = false;
+	private boolean mSendJSONOnInvisiblePlayers = false;
 
 	public void onEnable() {
 		mPdfFile = this.getDescription();
 		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
 		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
+		mHideSneakingPlayers = getConfig().getBoolean("hideSneakingPlayers");
+		mHideInvisiblePlayers = getConfig().getBoolean("hideInvisiblePlayers");
+		mSendJSONOnVanishedPlayers = getConfig().getBoolean("sendJSONOnVanishedPlayers");
+		mSendJSONOnSneakingPlayers = getConfig().getBoolean("sendJSONOnSneakingPlayers");
+		mSendJSONOnInvisiblePlayers = getConfig().getBoolean("sendJSONOnInvisiblePlayers");
 
 		// Initialize the mapping bukkit to overviewer map names
 		initMapNameMapping();
@@ -197,6 +208,10 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		// Write Online players
 		Player[] players = getServer().getOnlinePlayers();
 		for (Player p : players) {
+			boolean sendDataVanished = true;
+			boolean sendDataSneaking = true;
+			boolean sendDataInvisible = true;
+
 			out = new JSONObject();
 			out.put("msg", p.getName());
 			out.put("id", 4);
@@ -205,16 +220,51 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
 
+			// Handles sneaking player
+			if (mHideSneakingPlayers) {
+				boolean isSneaking = p.isSneaking();
+
+				if (isSneaking) {
+					if (mSendJSONOnSneakingPlayers) {
+						out.put("id", 6);
+					}
+
+					sendDataSneaking = false;
+				}
+			}
+
+			// Handles invisible potion effect on player
+			if (mHideInvisiblePlayers) {
+				boolean isInvisible = p.hasPotionEffect(PotionEffectType.INVISIBILITY);
+
+				if (isInvisible) {
+					if (mSendJSONOnInvisiblePlayers) {
+						out.put("id", 7); // will replace sneaking player ID
+					}
+
+					sendDataInvisible = false;
+				}
+			}
+
+			// Handles vanished player
 			if (mHideVanishedPlayers) {
 				List<MetadataValue> list = p.getMetadata("vanished");
 				for (MetadataValue value : list) {
 					if (value.asBoolean()) {
-						out.put("id", 5);
+						if (mSendJSONOnVanishedPlayers) {
+							out.put("id", 5); // will replace invisible player ID
+						}
+
+						sendDataVanished = false;
+
 						break;
 					}
 				}
 			}
-			jsonList.add(out);
+
+			if (sendDataSneaking || sendDataInvisible || sendDataVanished) {
+				jsonList.add(out);
+			}
 		}
 
 		if (mSaveOfflinePlayers) {
